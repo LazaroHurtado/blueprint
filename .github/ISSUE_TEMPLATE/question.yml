@@ -1,0 +1,14 @@
+name: Question or documentation gap
+description: Ask for help or identify unclear documentation.
+title: "[Question]: "
+body:
+  - type: markdown
+    attributes:
+      value: Read SUPPORT.md first. Do not post secrets or private data. For a private security contact request, include no technical details here.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Include relevant version/platform details and which documentation you tried.
+    validations:
+      required: true

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/LazaroHurtado/blueprint/security/advisories/new
+    about: Do not post vulnerability details or credentials in a public issue. See SECURITY.md if private reporting is unavailable.
+  - name: Documentation and support
+    url: https://github.com/LazaroHurtado/blueprint/blob/main/SUPPORT.md
+    about: Read setup, troubleshooting, and safe reporting guidance.

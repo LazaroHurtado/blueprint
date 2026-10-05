@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a reproducible Blueprint problem using non-sensitive data.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, OAuth URLs, recovery journals, or private workflow/source content. Report vulnerabilities privately using SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Blueprint version or commit
+      placeholder: Version, commit, or source branch
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS version and architecture
+      placeholder: Ubuntu 24.04 x86_64, macOS 15 arm64, etc.
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: How are you running Blueprint?
+      options:
+        - Source desktop build
+        - Debian package
+        - macOS app bundle
+        - Browser preview
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the smallest synthetic workflow or example that demonstrates the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized error messages or screenshots
+      description: Do not attach transaction.json or credentials. Check screenshots and paths for private information.

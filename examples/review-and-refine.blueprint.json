@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "id": "example_review_refine",
+  "name": "Review and refine",
+  "description": "Draft a checklist, optionally refine it in a bounded loop, then summarize. No tools or repository access are enabled.",
+  "graph": {
+    "nodes": [
+      {
+        "id": "draft",
+        "type": "agent",
+        "name": "Draft",
+        "position": { "x": 100, "y": 220 },
+        "prompt": "Draft a concise checklist for the task in the workflow input. Return JSON with text containing the checklist and ready indicating whether it fully addresses the request. Do not claim to inspect files or run tools.",
+        "task": "Create an initial checklist for the supplied task.",
+        "tools": [],
+        "mcpServers": {},
+        "output": "json",
+        "fields": [
+          { "name": "text", "type": "string" },
+          { "name": "ready", "type": "boolean" }
+        ]
+      },
+      {
+        "id": "needs_refinement",
+        "type": "decision",
+        "name": "Needs refinement?",
+        "position": { "x": 420, "y": 220 },
+        "condition": { "source": "draft", "field": "ready", "operator": "equals", "value": false }
+      },
+      {
+        "id": "refinement",
+        "type": "loop",
+        "name": "Refine",
+        "position": { "x": 740, "y": 0 },
+        "mode": "repeat",
+        "maxIterations": 3,
+        "itemName": "item",
+        "collection": { "source": "input", "field": "items" },
+        "condition": { "source": "quality_review", "field": "ready", "operator": "equals", "value": true },
+        "body": {
+          "nodes": [
+            {
+              "id": "refine_text",
+              "type": "agent",
+              "name": "Refine checklist",
+              "position": { "x": 160, "y": 200 },
+              "prompt": "Improve the checklist using the original task, upstream draft, and any previous iteration feedback. Return only the revised checklist. Do not use tools or invent work that was performed.",
+              "task": "Revise the checklist for clarity and completeness.",
+              "tools": [],
+              "mcpServers": {},
+              "output": "text",
+              "fields": []
+            },
+            {
+              "id": "quality_review",
+              "type": "agent",
+              "name": "Review checklist",
+              "position": { "x": 500, "y": 200 },
+              "prompt": "Review the checklist against the task. Return JSON with ready=true when it is sufficient and feedback describing only actionable remaining improvements. Do not require perfection or invent missing context.",
+              "task": "Evaluate the revised checklist from upstream.",
+              "tools": [],
+              "mcpServers": {},
+              "output": "json",
+              "fields": [
+                { "name": "ready", "type": "boolean" },
+                { "name": "feedback", "type": "string" }
+              ]
+            }
+          ],
+          "edges": [{ "id": "refine_review", "source": "refine_text", "target": "quality_review" }]
+        }
+      },
+      {
+        "id": "summary",
+        "type": "agent",
+        "name": "Summary",
+        "position": { "x": 1080, "y": 400 },
+        "prompt": "Present the final checklist from the active upstream branch. Be concise and clear. Do not claim to have run the checklist or accessed a repository.",
+        "task": "Summarize the final checklist.",
+        "tools": [],
+        "mcpServers": {},
+        "output": "text",
+        "fields": []
+      }
+    ],
+    "edges": [
+      { "id": "draft_decision", "source": "draft", "target": "needs_refinement" },
+      { "id": "ready_summary", "source": "needs_refinement", "target": "summary", "branch": "false" },
+      { "id": "needs_refinement_loop", "source": "needs_refinement", "target": "refinement", "branch": "true" },
+      { "id": "refinement_summary", "source": "refinement", "target": "summary" }
+    ]
+  }
+}

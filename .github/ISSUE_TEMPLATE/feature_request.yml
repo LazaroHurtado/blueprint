@@ -1,0 +1,23 @@
+name: Feature request
+description: Propose a focused improvement and explain the user problem.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+      description: Describe the workflow or limitation, not just a proposed implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Include alternatives and any effects on offline use, saved workflows, or supported platforms.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and tradeoffs
+      description: What is the smallest useful version? What should stay out of scope?
