@@ -232,6 +232,7 @@ fn client_options(program: PathBuf, app_local_data: &Path) -> Result<(ClientOpti
             "GH_TOKEN",
             "GITHUB_TOKEN",
             "COPILOT_SDK_AUTH_TOKEN",
+            "COPILOT_DISABLE_KEYTAR",
         ]);
     Ok((options, directory))
 }
