@@ -41,13 +41,14 @@ apply appropriate OS/network controls as well.
 
 Browser OAuth uses GitHub's authorization endpoint and a runtime-managed local
 loopback callback. Do not share raw authorization URLs. Blueprint receives only
-credential-free account metadata in the renderer. Copilot owns credential storage,
-normally in the OS keychain; its existing storage preferences still apply. In
-Empty mode, Blueprint removes the SDK's forced keychain-disable setting so the
-SDK does not force its file-based credential fallback under `copilot-runtime/`.
-The isolated runtime test does not perform real login, so keychain behavior on a
-particular desktop still depends on the platform's keychain being available.
-Blueprint does not consent to a plaintext-storage fallback.
+credential-free account metadata in the renderer. Copilot manages its credentials,
+normally through the OS keychain. Blueprint removes `COPILOT_DISABLE_KEYTAR` from
+the runtime environment, including inherited values, because Empty mode otherwise
+forces file-based credentials under `copilot-runtime/`. This environment setting
+cannot opt Blueprint into file-backed credentials. The isolated runtime test does
+not perform real login, so keychain behavior on a particular desktop remains
+unverified and depends on platform keychain availability. Blueprint does not
+consent to a plaintext-storage fallback.
 
 ## Prompt generation
 
