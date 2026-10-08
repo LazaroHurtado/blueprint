@@ -41,9 +41,14 @@ apply appropriate OS/network controls as well.
 
 Browser OAuth uses GitHub's authorization endpoint and a runtime-managed local
 loopback callback. Do not share raw authorization URLs. Blueprint receives only
-credential-free account metadata in the renderer. Copilot owns credential storage,
-normally in the OS keychain; its existing storage preferences still apply.
-Blueprint does not consent to a new plaintext-storage fallback.
+credential-free account metadata in the renderer. Copilot manages its credentials,
+normally through the OS keychain. Blueprint removes `COPILOT_DISABLE_KEYTAR` from
+the runtime environment, including inherited values, because Empty mode otherwise
+forces file-based credentials under `copilot-runtime/`. This environment setting
+cannot opt Blueprint into file-backed credentials. The isolated runtime test does
+not perform real login, so keychain behavior on a particular desktop remains
+unverified and depends on platform keychain availability. Blueprint does not
+consent to a plaintext-storage fallback.
 
 ## Prompt generation
 
@@ -70,10 +75,15 @@ records, or service-side retention. See
 [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)
 and the terms applicable to your Copilot account.
 
-The SDK maintains its own local cache/config/session state. Generation sessions
-are normally deleted after use; a crash or cleanup failure can leave temporary
-state. Blueprint's empty `copilot-workspace/` and opt-out marker also live in its
-app-local directory. The runtime binary cache is managed by the SDK.
+The SDK maintains its own local cache/config/session state in Blueprint's
+app-local `copilot-runtime/` directory. Blueprint explicitly configures this
+directory for the bundled Empty-mode client so existing login state can be found
+without using ambient CLI configuration or an implicit home-directory fallback.
+Credentials remain runtime-managed and normally use the OS keychain; Blueprint
+does not create token files. Generation sessions are normally deleted after use;
+a crash or cleanup failure can leave temporary state. Blueprint's empty
+`copilot-workspace/` and opt-out marker also live in its app-local directory. The
+runtime binary cache is managed by the SDK.
 
 ## Diagnostics, examples, and deletion
 
