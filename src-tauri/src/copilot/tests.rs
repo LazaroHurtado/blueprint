@@ -130,26 +130,14 @@ async fn bundled_runtime_starts_a_restricted_unauthenticated_session_without_inf
     ));
     fs::create_dir(&directory).unwrap();
     let program = github_copilot_sdk::install_bundled_runtime().expect("bundled runtime");
-    let client = Client::start(
-        ClientOptions::default()
-            .with_program(program)
-            .with_mode(ClientMode::Empty)
-            .with_cwd(&directory)
-            .with_base_directory(directory.join("copilot-home"))
-            .with_use_logged_in_user(false)
-            .with_env_remove([
-                "COPILOT_GITHUB_TOKEN",
-                "GH_TOKEN",
-                "GITHUB_TOKEN",
-                "COPILOT_SDK_AUTH_TOKEN",
-            ]),
-    )
-    .await
-    .expect("start bundled runtime");
+    let (options, workspace) = client_options(program, &directory).unwrap();
+    let client = Client::start(options.with_use_logged_in_user(false))
+        .await
+        .expect("start bundled runtime");
     let result = async {
         let account = request(
             "Create restricted session",
-            client.create_session(session_config(&directory)),
+            client.create_session(session_config(&workspace)),
         )
         .await?;
         let auth = request(

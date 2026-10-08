@@ -170,26 +170,11 @@ impl CopilotState {
         if let Some(runtime) = slot.as_ref() {
             return Ok(Arc::clone(runtime));
         }
-        let directory = data_dir(app)?.join("copilot-workspace");
-        fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(&directory)
-            .map_err(|error| format!("Cannot create Copilot's private workspace: {error}"))?;
+        let app_local_data = data_dir(app)?;
         let program = tauri::async_runtime::spawn_blocking(github_copilot_sdk::install_bundled_runtime)
             .await.map_err(|error| format!("Cannot unpack Copilot: {error}"))?
             .ok_or("The bundled Copilot runtime could not be unpacked. Check available disk space and cache permissions.")?;
-        let options = ClientOptions::default()
-            .with_program(program)
-            .with_cwd(&directory)
-            .with_mode(ClientMode::Empty)
-            .with_use_logged_in_user(true)
-            .with_env_remove([
-                "COPILOT_GITHUB_TOKEN",
-                "GH_TOKEN",
-                "GITHUB_TOKEN",
-                "COPILOT_SDK_AUTH_TOKEN",
-            ]);
+        let (options, directory) = client_options(program, &app_local_data)?;
         let client = request("Start Copilot", Client::start(options)).await?;
         *self
             .process
@@ -221,6 +206,34 @@ fn data_dir(app: &tauri::AppHandle) -> Result<PathBuf> {
     app.path()
         .app_local_data_dir()
         .map_err(|error| error.to_string())
+}
+
+fn client_options(program: PathBuf, app_local_data: &Path) -> Result<(ClientOptions, PathBuf)> {
+    let directory = app_local_data.join("copilot-workspace");
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(&directory)
+        .map_err(|error| format!("Cannot create Copilot's private workspace: {error}"))?;
+    let base_directory = app_local_data.join("copilot-runtime");
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(&base_directory)
+        .map_err(|error| format!("Cannot create Copilot's private runtime state: {error}"))?;
+    let options = ClientOptions::default()
+        .with_program(program)
+        .with_cwd(&directory)
+        .with_mode(ClientMode::Empty)
+        .with_base_directory(base_directory)
+        .with_use_logged_in_user(true)
+        .with_env_remove([
+            "COPILOT_GITHUB_TOKEN",
+            "GH_TOKEN",
+            "GITHUB_TOKEN",
+            "COPILOT_SDK_AUTH_TOKEN",
+        ]);
+    Ok((options, directory))
 }
 
 fn disconnected(app: &tauri::AppHandle) -> Result<bool> {

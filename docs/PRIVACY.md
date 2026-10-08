@@ -70,10 +70,15 @@ records, or service-side retention. See
 [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)
 and the terms applicable to your Copilot account.
 
-The SDK maintains its own local cache/config/session state. Generation sessions
-are normally deleted after use; a crash or cleanup failure can leave temporary
-state. Blueprint's empty `copilot-workspace/` and opt-out marker also live in its
-app-local directory. The runtime binary cache is managed by the SDK.
+The SDK maintains its own local cache/config/session state in Blueprint's
+app-local `copilot-runtime/` directory. Blueprint explicitly configures this
+directory for the bundled Empty-mode client so existing login state can be found
+without using ambient CLI configuration or an implicit home-directory fallback.
+Credentials remain runtime-managed and normally use the OS keychain; Blueprint
+does not create token files. Generation sessions are normally deleted after use;
+a crash or cleanup failure can leave temporary state. Blueprint's empty
+`copilot-workspace/` and opt-out marker also live in its app-local directory. The
+runtime binary cache is managed by the SDK.
 
 ## Diagnostics, examples, and deletion
 
