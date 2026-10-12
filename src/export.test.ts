@@ -98,18 +98,25 @@ test("export generates all files, escapes code, and round-trips the document", a
 test("optional models persist and reach agent calls and profiles, including loop bodies", async () => {
   const first = agent("first");
   first.model = "model-a";
+  first.reasoningEffort = "high";
   const loop = repeat();
   const nested = loop.body.nodes[0];
   assert.ok(nested.type === "agent");
   nested.model = "model-b";
+  nested.reasoningEffort = "xhigh";
   const workflow = document({ nodes: [first, loop], edges: [] });
   const files = exportWorkflow(workflow);
   assert.deepEqual(parseWorkflow(files.find((file) => file.path.endsWith("blueprint.json"))!.content), workflow);
   assert.match(files.find((file) => file.path.endsWith("-first.agent.md"))!.content, /^model: "model-a"$/m);
   assert.match(files.find((file) => file.path.endsWith("-validate.agent.md"))!.content, /^model: "model-b"$/m);
+  assert.doesNotMatch(files.find((file) => file.path.endsWith("-first.agent.md"))!.content, /reasoning[-_]effort/i);
   const { calls } = await run(workflow, {}, (_, options) => options.label?.endsWith("/first") ? "done" : { passed: true });
-  assert.equal(calls.find((call) => call.options.label?.endsWith("/first"))?.options.model, "model-a");
-  assert.equal(calls.find((call) => call.options.label?.endsWith("/validate"))?.options.model, "model-b");
+  const firstCall = calls.find((call) => call.options.label?.endsWith("/first"));
+  const nestedCall = calls.find((call) => call.options.label?.endsWith("/validate"));
+  assert.equal(firstCall?.options.model, "model-a");
+  assert.equal(firstCall?.options.reasoningEffort, "high");
+  assert.equal(nestedCall?.options.model, "model-b");
+  assert.equal(nestedCall?.options.reasoningEffort, "xhigh");
 });
 
 test("old documents and cleared model overrides keep the configured Copilot defaults", async () => {
@@ -118,6 +125,7 @@ test("old documents and cleared model overrides keep the configured Copilot defa
   assert.deepEqual(parseWorkflow(JSON.stringify(workflow)), workflow);
   node.model = "model-a";
   delete node.model;
+  delete node.reasoningEffort;
   const files = exportWorkflow(workflow);
   assert.doesNotMatch(files.find((file) => file.path.endsWith(".agent.md"))!.content, /^model:/m);
   assert.doesNotMatch(files.find((file) => file.path.endsWith("blueprint.json"))!.content, /"model":/);
@@ -126,6 +134,14 @@ test("old documents and cleared model overrides keep the configured Copilot defa
   node.model = "   ";
   assert.ok(validateWorkflow(workflow).some((error) => error.includes("model ID")));
   assert.throws(() => parseWorkflow(JSON.stringify(workflow)), /model ID/);
+});
+
+test("unknown reasoning effort values are rejected instead of exported as unsupported options", () => {
+  const malformed = JSON.parse(JSON.stringify(document({ nodes: [agent("invalid")], edges: [] }))) as {
+    graph: { nodes: Record<string, unknown>[] };
+  };
+  malformed.graph.nodes[0].reasoningEffort = "balanced";
+  assert.throws(() => parseWorkflow(JSON.stringify(malformed)), /reasoningEffort/);
 });
 
 test("decisions skip the unchosen path and joins retain false-valued data", async () => {

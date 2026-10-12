@@ -2,11 +2,11 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import {
   cancelCopilot, disconnectCopilot, generatePrompt, getCopilotModels, getCopilotStatus,
-  loginCopilot, message, reopenCopilotBrowser, type CopilotModel, type CopilotStatus,
+  loginCopilot, message, modelReasoningEfforts, reopenCopilotBrowser, setAgentModel, type CopilotModel, type CopilotStatus,
 } from "./copilot.ts";
 import { Icon } from "./Nodes.tsx";
 import { Dialog, Field } from "./ui.tsx";
-import { newId, type AgentNode } from "./workflow.ts";
+import { newId, type AgentNode, type ReasoningEffort } from "./workflow.ts";
 
 export function useCopilot() {
   const [status, setStatus] = useState<CopilotStatus | null>(null);
@@ -170,18 +170,29 @@ export function CopilotDialog({ copilot, onClose }: { copilot: CopilotController
 }
 
 export function ModelField({ agent, copilot, onChange, onManual }: {
-  agent: AgentNode; copilot: CopilotController; onChange: (model: string | undefined) => void; onManual: () => void;
+  agent: AgentNode; copilot: CopilotController; onChange: (agent: AgentNode) => void; onManual: () => void;
 }) {
   const selected = copilot.models.find((model) => model.id === agent.model);
+  const supportedEfforts = modelReasoningEfforts(selected);
+  const effortIsUnsupported = agent.reasoningEffort && !supportedEfforts.includes(agent.reasoningEffort);
+  const [modelNotice, setModelNotice] = useState("");
   const connected = copilot.status?.connected;
   const hint = !connected ? "Optional. Login to browse models; manual IDs still work."
     : !agent.model ? "Uses Copilot's configured model."
     : selected ? selected.policy || `${selected.id} · Used when the workflow runs.`
     : copilot.modelsLoading ? "Loading models. Your saved ID is kept." : "Not in this account's list. Your saved ID is kept.";
+  function changeModel(model: string | undefined, clearNotice = false, useDefault = false) {
+    const result = setAgentModel(agent, model, copilot.models, useDefault);
+    onChange(result.agent);
+    if (result.reasoningEffortReset) setModelNotice(useDefault
+      ? "Reasoning effort reset to Default because you selected the Default model."
+      : "Reasoning effort reset to Default because the model catalog confirms this effort is unsupported.");
+    else if (clearNotice) setModelNotice("");
+  }
   return <div className="model-field">
     <Field label="Model" hint={hint}>{connected ? <select value={agent.model ? `model:${agent.model}` : ""} onChange={(event) => {
       if (event.target.value === "manual") onManual();
-      else onChange(event.target.value ? event.target.value.slice(6) : undefined);
+      else changeModel(event.target.value ? event.target.value.slice(6) : undefined, true, !event.target.value);
     }}>
       <option value="">Default</option>
       {!!agent.model && !selected && <option value={`model:${agent.model}`}>{agent.model} (saved ID)</option>}
@@ -191,7 +202,23 @@ export function ModelField({ agent, copilot, onChange, onManual }: {
         </option>)}
       </optgroup>
       <option value="manual">Enter a model ID...</option>
-    </select> : <input value={agent.model || ""} maxLength={200} placeholder="Default or model ID" onChange={(event) => onChange(event.target.value.trim() || undefined)} />}</Field>
+    </select> : <input value={agent.model || ""} maxLength={200} placeholder="Default or model ID" onChange={(event) => changeModel(event.target.value.trim() || undefined)} />}</Field>
+    {supportedEfforts.length > 0 && <Field label="Reasoning effort" hint="Available levels are reported by the selected model.">
+      <select value={agent.reasoningEffort || ""} onChange={(event) => onChange({
+        ...agent, reasoningEffort: (event.target.value || undefined) as ReasoningEffort | undefined,
+      })}>
+        <option value="">Default</option>
+        {agent.reasoningEffort && effortIsUnsupported && <option value={agent.reasoningEffort} disabled>{agent.reasoningEffort} (not supported by this model)</option>}
+        {supportedEfforts.map((effort) => <option value={effort} key={effort}>{effort}</option>)}
+      </select>
+    </Field>}
+    {agent.reasoningEffort && effortIsUnsupported && <p className="model-notice" role="status">
+      {selected?.supportedReasoningEfforts !== undefined
+        ? `The selected model does not list “${agent.reasoningEffort}” as a supported effort. The saved setting is preserved.`
+        : `Model capability information is unavailable; support for the saved “${agent.reasoningEffort}” effort is unconfirmed.`}
+      {" "}<button className="text-button" onClick={() => onChange({ ...agent, reasoningEffort: undefined })}>Use Default</button>
+    </p>}
+    {modelNotice && <p className="model-notice" role="status">{modelNotice}</p>}
     {selected?.notices.map((notice, index) => <p className="muted model-notice" key={index}>{notice}</p>)}
     {(copilot.modelsError || copilot.error) && <div className="model-notice"><p className="error" role="alert">{copilot.modelsError || copilot.error}</p><button className="text-button" disabled={copilot.checking} onClick={() => void copilot.refresh()}>Retry connection</button></div>}
   </div>;
@@ -206,6 +233,7 @@ export function CustomModelDialog({ agent, onSave, onClose }: {
     <p className="muted">Keep an imported model or enter an exact ID manually.</p>
     <Field label="Model ID"><input value={value} maxLength={200} autoFocus placeholder="Default" onChange={(event) => setValue(event.target.value)} /></Field>
     <p className="muted">IDs outside your model list are kept. Copilot must support the model when the workflow runs. Leave blank to use Default.</p>
+    {agent.reasoningEffort && <p className="muted">An effort is reset when the catalog confirms a new model does not support it or when you select Default. If support is unknown, the effort is preserved.</p>}
     {error && <p className="error" role="alert">{error}</p>}
     <div className="dialog-actions"><button onClick={onClose}>Cancel</button><button className="primary" onClick={() => {
       try { onSave(value.trim() || undefined); } catch (problem) { setError(message(problem)); }

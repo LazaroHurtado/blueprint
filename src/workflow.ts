@@ -3,6 +3,8 @@ import { z } from "zod";
 export type Primitive = string | number | boolean | null;
 export type Json = Primitive | Json[] | { [key: string]: Json };
 export type FieldType = "string" | "number" | "boolean" | "array" | "object";
+export const reasoningEffortValues = ["low", "medium", "high", "xhigh", "max"] as const;
+export type ReasoningEffort = typeof reasoningEffortValues[number];
 export type Operator = "equals" | "notEquals" | "greater" | "less" | "contains";
 export type Condition = {
   source: string;
@@ -17,6 +19,7 @@ type BaseNode = { id: string; name: string; position: { x: number; y: number } }
 export type AgentNode = BaseNode & {
   type: "agent";
   model?: string;
+  reasoningEffort?: ReasoningEffort;
   prompt: string;
   task: string;
   tools: string[];
@@ -100,7 +103,8 @@ const base = {
 };
 const nodeSchema: z.ZodType<WorkflowNode> = z.lazy(() => z.discriminatedUnion("type", [
   z.object({
-    ...base, type: z.literal("agent"), model: modelSchema.optional(), prompt: z.string().max(30_000), task: z.string().max(10_000),
+    ...base, type: z.literal("agent"), model: modelSchema.optional(),
+    reasoningEffort: z.enum(reasoningEffortValues).optional(), prompt: z.string().max(30_000), task: z.string().max(10_000),
     tools: z.array(z.string()), mcpServers: mcpSchema, output: z.enum(["text", "json"]),
     fields: z.array(z.object({ name: z.string(), type: z.enum(["string", "number", "boolean", "array", "object"]) }).strict()),
   }).strict(),

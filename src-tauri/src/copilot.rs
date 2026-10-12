@@ -49,6 +49,8 @@ pub struct AvailableModel {
     selectable: bool,
     policy: Option<String>,
     notices: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    supported_reasoning_efforts: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -386,6 +388,7 @@ fn model_info(model: Model) -> Result<AvailableModel> {
         selectable,
         policy,
         notices,
+        supported_reasoning_efforts: model.supported_reasoning_efforts,
     })
 }
 

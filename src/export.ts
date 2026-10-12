@@ -105,6 +105,7 @@ function sourceCode(workflow: Workflow, typed: boolean): string {
         const options = {
           agent: agentName(workflow, node),
           ...(node.model ? { model: node.model } : {}),
+          ...(node.reasoningEffort ? { reasoningEffort: node.reasoningEffort } : {}),
           ...(node.output === "json" ? {
             schema: {
               type: "object", required: node.fields.map((item) => item.name),

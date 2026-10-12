@@ -11,6 +11,7 @@ test("drafts preserve incomplete graphs, names, prompts, positions, and nested m
   const agent = newNode("agent", { x: 10, y: 20 });
   assert.ok(loop.type === "loop" && agent.type === "agent");
   agent.model = "my-model";
+  agent.reasoningEffort = "medium";
   loop.maxIterations = -1;
   loop.body.nodes.push(agent);
   workflow.graph.nodes.push(loop, newNode("decision", { x: 100, y: 300 }));

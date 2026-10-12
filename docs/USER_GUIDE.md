@@ -60,6 +60,17 @@ including agents inside loops. Clearing the field removes the override.
 Model availability is checked by Copilot when the workflow runs, based on the
 runner's account, providers, and policies; Blueprint does not hardcode a model list.
 
+When the selected catalog model reports supported reasoning effort levels, a
+Reasoning effort dropdown offers those levels and **Default** (no override). If
+you change to a model whose catalog explicitly excludes the saved level, Blueprint
+resets the effort to Default and tells you. If model capability information is
+missing, Blueprint preserves the saved effort because incompatibility is not
+confirmed; its support remains unconfirmed and you can clear it with **Use Default**.
+Selecting the model **Default** also resets the effort. The pinned
+dynamic-workflow contract accepts the setting as `reasoningEffort` in agent-call
+options, so it is included there when selected. Blueprint does not emit a
+reasoning-effort field in agent profile frontmatter.
+
 ## Copilot-assisted authoring
 
 Copilot login is optional. Workflow creation, manual editing, import, draft saving,
