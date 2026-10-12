@@ -22,14 +22,15 @@ export function modelReasoningEfforts(model?: CopilotModel): ReasoningEffort[] {
   return reasoningEffortValues.filter((effort) => model?.supportedReasoningEfforts?.includes(effort));
 }
 
-export function setAgentModel(agent: AgentNode, model: string | undefined, catalog: CopilotModel[]) {
+export function setAgentModel(agent: AgentNode, model: string | undefined, catalog: CopilotModel[], useDefault = false) {
   const selected = catalog.find((entry) => entry.id === model);
-  const keepEffort = agent.reasoningEffort && (
-    model === agent.model || modelReasoningEfforts(selected).includes(agent.reasoningEffort)
-  );
+  const capabilitiesKnown = selected?.supportedReasoningEfforts !== undefined;
+  const incompatible = model !== agent.model && capabilitiesKnown
+    && !modelReasoningEfforts(selected).includes(agent.reasoningEffort!);
+  const resetEffort = Boolean(agent.reasoningEffort && (useDefault || incompatible));
   const updated: AgentNode = { ...agent, model };
-  if (agent.reasoningEffort && !keepEffort) delete updated.reasoningEffort;
-  return { agent: updated, reasoningEffortReset: Boolean(agent.reasoningEffort && !keepEffort) };
+  if (resetEffort) delete updated.reasoningEffort;
+  return { agent: updated, reasoningEffortReset: resetEffort };
 }
 
 async function call<T>(command: string, schema: z.ZodType<T>, args?: Record<string, unknown>): Promise<T> {

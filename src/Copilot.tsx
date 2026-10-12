@@ -181,16 +181,18 @@ export function ModelField({ agent, copilot, onChange, onManual }: {
     : !agent.model ? "Uses Copilot's configured model."
     : selected ? selected.policy || `${selected.id} · Used when the workflow runs.`
     : copilot.modelsLoading ? "Loading models. Your saved ID is kept." : "Not in this account's list. Your saved ID is kept.";
-  function changeModel(model: string | undefined, clearNotice = false) {
-    const result = setAgentModel(agent, model, copilot.models);
+  function changeModel(model: string | undefined, clearNotice = false, useDefault = false) {
+    const result = setAgentModel(agent, model, copilot.models, useDefault);
     onChange(result.agent);
-    if (result.reasoningEffortReset) setModelNotice("Reasoning effort reset to Default because the new model does not list the saved effort as supported.");
+    if (result.reasoningEffortReset) setModelNotice(useDefault
+      ? "Reasoning effort reset to Default because you selected the Default model."
+      : "Reasoning effort reset to Default because the model catalog confirms this effort is unsupported.");
     else if (clearNotice) setModelNotice("");
   }
   return <div className="model-field">
     <Field label="Model" hint={hint}>{connected ? <select value={agent.model ? `model:${agent.model}` : ""} onChange={(event) => {
       if (event.target.value === "manual") onManual();
-      else changeModel(event.target.value ? event.target.value.slice(6) : undefined, true);
+      else changeModel(event.target.value ? event.target.value.slice(6) : undefined, true, !event.target.value);
     }}>
       <option value="">Default</option>
       {!!agent.model && !selected && <option value={`model:${agent.model}`}>{agent.model} (saved ID)</option>}
@@ -231,7 +233,7 @@ export function CustomModelDialog({ agent, onSave, onClose }: {
     <p className="muted">Keep an imported model or enter an exact ID manually.</p>
     <Field label="Model ID"><input value={value} maxLength={200} autoFocus placeholder="Default" onChange={(event) => setValue(event.target.value)} /></Field>
     <p className="muted">IDs outside your model list are kept. Copilot must support the model when the workflow runs. Leave blank to use Default.</p>
-    {agent.reasoningEffort && <p className="muted">Changing to a model that does not list this effort as supported resets it to Default.</p>}
+    {agent.reasoningEffort && <p className="muted">An effort is reset when the catalog confirms a new model does not support it or when you select Default. If support is unknown, the effort is preserved.</p>}
     {error && <p className="error" role="alert">{error}</p>}
     <div className="dialog-actions"><button onClick={onClose}>Cancel</button><button className="primary" onClick={() => {
       try { onSave(value.trim() || undefined); } catch (problem) { setError(message(problem)); }

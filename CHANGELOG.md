@@ -14,6 +14,7 @@ release represented by this file yet.
 - Native scoped saves, overwrite checks, durable journaling, and rollback recovery.
 - Optional Copilot login, account model discovery/manual IDs, and reviewed
   system-prompt generation.
+- Model-aware reasoning-effort selection for workflow agents.
 - Public contributor, security, privacy, licensing, CI, and release-candidate
   infrastructure.
 

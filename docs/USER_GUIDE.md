@@ -62,10 +62,11 @@ runner's account, providers, and policies; Blueprint does not hardcode a model l
 
 When the selected catalog model reports supported reasoning effort levels, a
 Reasoning effort dropdown offers those levels and **Default** (no override). If
-you change to a model that does not report support for the saved level, Blueprint
-resets the effort to Default and tells you. A saved effort remains visible and
-preserved if its model or capability information is unavailable; it is not
-confirmed as supported, and you can clear it with **Use Default**. The pinned
+you change to a model whose catalog explicitly excludes the saved level, Blueprint
+resets the effort to Default and tells you. If model capability information is
+missing, Blueprint preserves the saved effort because incompatibility is not
+confirmed; its support remains unconfirmed and you can clear it with **Use Default**.
+Selecting the model **Default** also resets the effort. The pinned
 dynamic-workflow contract accepts the setting as `reasoningEffort` in agent-call
 options, so it is included there when selected. Blueprint does not emit a
 reasoning-effort field in agent profile frontmatter.

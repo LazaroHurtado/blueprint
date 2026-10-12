@@ -348,10 +348,12 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
       setNotice("System prompt updated");
     }} />}
     {dialog === "model" && agentTarget && <CustomModelDialog agent={agentTarget.agent} onClose={closeAgentDialog} onSave={(model) => {
-      const result = setAgentModel(currentTarget(), model, copilot.models);
+      const result = setAgentModel(currentTarget(), model, copilot.models, model === undefined);
       changeNode(result.agent);
       closeAgentDialog();
-      if (result.reasoningEffortReset) setNotice("Reasoning effort reset to Default because the new model does not list the saved effort as supported.");
+      if (result.reasoningEffortReset) setNotice(model === undefined
+        ? "Reasoning effort reset to Default because you selected the Default model."
+        : "Reasoning effort reset to Default because the model catalog confirms this effort is unsupported.");
     }} />}
     {dialog === "connections" && graph && <Dialog title="Connect nodes" onClose={() => setDialog(null)}>
       <Field label="From"><select value={sourceId} onChange={(event) => setSourceId(event.target.value)}><option value="">Choose node</option>{graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name || "Unnamed"}</option>)}</select></Field>

@@ -80,12 +80,19 @@ test("changing model keeps only a catalog-confirmed compatible reasoning effort"
   assert.equal(alsoCompatible.reasoningEffortReset, false);
   const unknown = setAgentModel(selected, "manual-model", catalog);
   assert.equal(unknown.agent.model, "manual-model");
-  assert.equal(unknown.agent.reasoningEffort, undefined);
-  assert.equal(unknown.reasoningEffortReset, true);
+  assert.equal(unknown.agent.reasoningEffort, "low");
+  assert.equal(unknown.reasoningEffortReset, false);
+  const emptyCatalog = setAgentModel(selected, "manual-model", []);
+  assert.equal(emptyCatalog.agent.reasoningEffort, "low");
+  assert.equal(emptyCatalog.reasoningEffortReset, false);
   const missingMetadata = setAgentModel(selected, "model-c", [
     { id: "model-c", name: "Model C", selectable: true, policy: null, notices: [] },
   ]);
-  assert.equal(missingMetadata.agent.reasoningEffort, undefined);
+  assert.equal(missingMetadata.agent.reasoningEffort, "low");
+  assert.equal(missingMetadata.reasoningEffortReset, false);
+  const cleared = setAgentModel(selected, undefined, catalog, true);
+  assert.equal(cleared.agent.reasoningEffort, undefined);
+  assert.equal(cleared.reasoningEffortReset, true);
 });
 
 test("prompt drafting sends only description and minimal agent settings, not MCP configuration or existing content", async () => {
