@@ -67,9 +67,21 @@ fn model_policy_is_visible_and_unknown_policy_is_not_assumed_safe() {
     let mut model = Model {
         id: "example-model".into(),
         name: "Example model".into(),
+        supported_reasoning_efforts: Some(vec!["low".into(), "high".into()]),
         ..Default::default()
     };
-    assert!(model_info(model.clone()).unwrap().selectable);
+    let available = model_info(model.clone()).unwrap();
+    assert!(available.selectable);
+    assert_eq!(
+        serde_json::to_value(&available).unwrap()["supportedReasoningEfforts"],
+        json!(["low", "high"])
+    );
+    model.supported_reasoning_efforts = None;
+    assert!(!serde_json::to_value(model_info(model.clone()).unwrap())
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .contains_key("supportedReasoningEfforts"));
     model.policy = Some(github_copilot_sdk::rpc::ModelPolicy {
         state: ModelPolicyState::Disabled,
         terms: None,

@@ -1,13 +1,13 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { z } from "zod";
-import type { AgentNode } from "./workflow.ts";
+import { reasoningEffortValues, type AgentNode, type ReasoningEffort } from "./workflow.ts";
 
 const authSchema = z.object({
   connected: z.boolean(), login: z.string().nullable(), host: z.string().nullable(),
 });
 const modelSchema = z.object({
   id: z.string().min(1).max(200), name: z.string().min(1), selectable: z.boolean(),
-  policy: z.string().nullable(), notices: z.array(z.string()),
+  policy: z.string().nullable(), notices: z.array(z.string()), supportedReasoningEfforts: z.array(z.string()).optional(),
 });
 const promptSchema = z.string().trim().min(1, "The generated prompt cannot be empty.").max(30_000);
 const draftSchema = z.object({ prompt: promptSchema, warning: z.string().nullable() });
@@ -17,6 +17,20 @@ export type CopilotModel = z.infer<typeof modelSchema>;
 export type PromptDraft = z.infer<typeof draftSchema>;
 
 export function message(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+
+export function modelReasoningEfforts(model?: CopilotModel): ReasoningEffort[] {
+  return reasoningEffortValues.filter((effort) => model?.supportedReasoningEfforts?.includes(effort));
+}
+
+export function setAgentModel(agent: AgentNode, model: string | undefined, catalog: CopilotModel[]) {
+  const selected = catalog.find((entry) => entry.id === model);
+  const keepEffort = agent.reasoningEffort && (
+    model === agent.model || modelReasoningEfforts(selected).includes(agent.reasoningEffort)
+  );
+  const updated: AgentNode = { ...agent, model };
+  if (agent.reasoningEffort && !keepEffort) delete updated.reasoningEffort;
+  return { agent: updated, reasoningEffortReset: Boolean(agent.reasoningEffort && !keepEffort) };
+}
 
 async function call<T>(command: string, schema: z.ZodType<T>, args?: Record<string, unknown>): Promise<T> {
   if (!isTauri()) throw new Error("Copilot connection requires the Blueprint desktop app. You can still edit and open workflows in this browser preview.");

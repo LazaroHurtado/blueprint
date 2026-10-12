@@ -15,7 +15,8 @@ mock.module("@tauri-apps/api/core", { namedExports: {
 } });
 const {
   applyGeneratedPrompt, cancelCopilot, disconnectCopilot, generatePrompt,
-  getCopilotModels, getCopilotStatus, loginCopilot, promptRequest, reopenCopilotBrowser,
+  getCopilotModels, getCopilotStatus, loginCopilot, modelReasoningEfforts, promptRequest,
+  reopenCopilotBrowser, setAgentModel,
 } = await import("./copilot.ts");
 
 function agent() {
@@ -45,13 +46,46 @@ test("Copilot auth stays in native commands and browser preview makes no native 
 
 test("model catalog retains policy explanations and does not invent or replace IDs", async () => {
   const selected = agent();
-  response = [{ id: "other-model", name: "Other model", selectable: false, policy: "Disabled by your organization", notices: ["A service notice"] }];
-  assert.deepEqual(await getCopilotModels(), response);
+  const models = [{
+    id: "other-model", name: "Other model", selectable: false, policy: "Disabled by your organization",
+    notices: ["A service notice"], supportedReasoningEfforts: ["low", "high"],
+  }];
+  response = models;
+  assert.deepEqual(await getCopilotModels(), models);
+  assert.deepEqual(modelReasoningEfforts(models[0]), ["low", "high"]);
   assert.equal(selected.model, "saved-model");
   response = [{ id: "", name: "Invalid" }];
   await assert.rejects(getCopilotModels(), /unexpected response/);
   response = new Error("Check your Copilot entitlement");
   await assert.rejects(getCopilotModels(), /entitlement/);
+});
+
+test("changing model keeps only a catalog-confirmed compatible reasoning effort", () => {
+  const catalog = [
+    { id: "model-a", name: "Model A", selectable: true, policy: null, notices: [], supportedReasoningEfforts: ["low", "high"] },
+    { id: "model-b", name: "Model B", selectable: true, policy: null, notices: [], supportedReasoningEfforts: ["high"] },
+    { id: "model-c", name: "Model C", selectable: true, policy: null, notices: [], supportedReasoningEfforts: ["low"] },
+  ];
+  const selected = { ...agent(), model: "model-a", reasoningEffort: "low" as const };
+  assert.deepEqual(modelReasoningEfforts(catalog[1]), ["high"]);
+  assert.deepEqual(modelReasoningEfforts({ ...catalog[1], supportedReasoningEfforts: undefined }), []);
+  const compatible = setAgentModel(selected, "model-a", catalog);
+  assert.equal(compatible.agent.reasoningEffort, "low");
+  assert.equal(compatible.reasoningEffortReset, false);
+  const incompatible = setAgentModel(selected, "model-b", catalog);
+  assert.equal(incompatible.agent.reasoningEffort, undefined);
+  assert.equal(incompatible.reasoningEffortReset, true);
+  const alsoCompatible = setAgentModel(selected, "model-c", catalog);
+  assert.equal(alsoCompatible.agent.reasoningEffort, "low");
+  assert.equal(alsoCompatible.reasoningEffortReset, false);
+  const unknown = setAgentModel(selected, "manual-model", catalog);
+  assert.equal(unknown.agent.model, "manual-model");
+  assert.equal(unknown.agent.reasoningEffort, undefined);
+  assert.equal(unknown.reasoningEffortReset, true);
+  const missingMetadata = setAgentModel(selected, "model-c", [
+    { id: "model-c", name: "Model C", selectable: true, policy: null, notices: [] },
+  ]);
+  assert.equal(missingMetadata.agent.reasoningEffort, undefined);
 });
 
 test("prompt drafting sends only description and minimal agent settings, not MCP configuration or existing content", async () => {

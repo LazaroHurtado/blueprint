@@ -68,7 +68,7 @@ export function Inspector({ node, graph, onChange, editBody, editTools, remove, 
     <h2>{node.name || "Unnamed"}</h2>
     <Field label="Name"><input value={node.name} maxLength={100} onChange={(event) => onChange({ ...node, name: event.target.value })} /></Field>
     {node.type === "agent" ? <>
-      <ModelField agent={node} copilot={copilot} onChange={(model) => onChange({ ...node, model })} onManual={editModel} />
+      <ModelField agent={node} copilot={copilot} onChange={onChange} onManual={editModel} />
       <div className="field"><div className="prompt-field-heading"><label htmlFor={promptId}>System prompt</label><button className="text-button generate-prompt" onClick={generatePrompt}><Icon type="sparkles" />Generate</button></div>
         <textarea id={promptId} value={node.prompt} rows={6} maxLength={30_000} placeholder="Describe this agent's role and instructions." onChange={(event) => onChange({ ...node, prompt: event.target.value })} />
       </div>

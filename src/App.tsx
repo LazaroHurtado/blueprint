@@ -7,6 +7,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createEditorState, editorReducer } from "./editor-state.ts";
 import { CopilotAccount, CopilotDialog, CustomModelDialog, PromptDialog, useCopilot } from "./Copilot.tsx";
+import { setAgentModel } from "./copilot.ts";
 import { applyGeneratedPrompt, message } from "./copilot.ts";
 import { exportWorkflow } from "./export.ts";
 import { chooseDraftFile, chooseFolder, openWorkflow, saveDraft, saveExport } from "./files.ts";
@@ -347,8 +348,10 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
       setNotice("System prompt updated");
     }} />}
     {dialog === "model" && agentTarget && <CustomModelDialog agent={agentTarget.agent} onClose={closeAgentDialog} onSave={(model) => {
-      changeNode({ ...currentTarget(), model });
+      const result = setAgentModel(currentTarget(), model, copilot.models);
+      changeNode(result.agent);
       closeAgentDialog();
+      if (result.reasoningEffortReset) setNotice("Reasoning effort reset to Default because the new model does not list the saved effort as supported.");
     }} />}
     {dialog === "connections" && graph && <Dialog title="Connect nodes" onClose={() => setDialog(null)}>
       <Field label="From"><select value={sourceId} onChange={(event) => setSourceId(event.target.value)}><option value="">Choose node</option>{graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name || "Unnamed"}</option>)}</select></Field>
