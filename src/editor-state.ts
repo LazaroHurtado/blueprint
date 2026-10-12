@@ -1,4 +1,5 @@
 import type { EdgeChange, NodeChange } from "@xyflow/react";
+import type { CanvasNode } from "./Nodes.tsx";
 import { graphAt, serializeDraft, updateGraph, type Graph, type Workflow } from "./workflow.ts";
 
 export type EditorState = {
@@ -7,6 +8,7 @@ export type EditorState = {
   selected: string | null;
   selectedNodes: Set<string>;
   selectedEdges: Set<string>;
+  nodeMeasurements: Map<string, NonNullable<CanvasNode["measured"]>>;
   saved: string;
 };
 
@@ -17,6 +19,7 @@ export type EditorAction =
   | { type: "navigate"; path: string[] }
   | { type: "graph"; path: string[]; change: (graph: Graph) => Graph }
   | { type: "selection"; path: string[]; nodes?: NodeChange[]; edges?: EdgeChange[] }
+  | { type: "dimensions"; path: string[]; nodes: NodeChange<CanvasNode>[] }
   | { type: "name"; name: string }
   | { type: "saved"; snapshot: string };
 
@@ -27,8 +30,18 @@ export function createEditorState(): EditorState {
     selected: null,
     selectedNodes: new Set(),
     selectedEdges: new Set(),
+    nodeMeasurements: new Map(),
     saved: "",
   };
+}
+
+export function getCanvasNodes(state: EditorState, editBody: (id: string) => void): CanvasNode[] {
+  const graph = state.workflow ? graphAt(state.workflow, state.path) : null;
+  return graph?.nodes.map((node) => ({
+    id: node.id, type: "workflow", position: node.position, data: { node, editBody },
+    measured: state.nodeMeasurements.get(node.id),
+    selected: state.selectedNodes.has(node.id), ariaLabel: `${node.type}: ${node.name || "Unnamed"}`,
+  })) || [];
 }
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -48,6 +61,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return {
         ...state, path: action.path, selected: null,
         selectedNodes: new Set(), selectedEdges: new Set(),
+        nodeMeasurements: new Map(),
       };
     case "saved":
       return { ...state, saved: action.snapshot };
@@ -59,6 +73,17 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
   // React Flow may deliver changes from a canvas that was just unmounted.
   if (action.path.join("/") !== state.path.join("/")) return state;
+  if (action.type === "dimensions") {
+    if (!state.workflow) return state;
+    const graph = graphAt(state.workflow, state.path);
+    const nodeMeasurements = new Map(state.nodeMeasurements);
+    for (const change of action.nodes) {
+      if (change.type === "dimensions" && change.dimensions && graph.nodes.some((node) => node.id === change.id)) {
+        nodeMeasurements.set(change.id, { ...change.dimensions });
+      }
+    }
+    return { ...state, nodeMeasurements };
+  }
   const selectedNodes = new Set(state.selectedNodes);
   const selectedEdges = new Set(state.selectedEdges);
 
@@ -80,6 +105,10 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
   if (!state.workflow) return state;
   const workflow = updateGraph(state.workflow, action.path, action.change);
   const graph = graphAt(workflow, state.path);
+  const nodeMeasurements = new Map(state.nodeMeasurements);
+  for (const id of nodeMeasurements.keys()) {
+    if (!graph.nodes.some((node) => node.id === id)) nodeMeasurements.delete(id);
+  }
   for (const id of selectedNodes) {
     if (!graph.nodes.some((node) => node.id === id)) selectedNodes.delete(id);
   }
@@ -87,7 +116,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     if (!graph.edges.some((edge) => edge.id === id)) selectedEdges.delete(id);
   }
   return {
-    ...state, workflow, selectedNodes, selectedEdges,
+    ...state, workflow, selectedNodes, selectedEdges, nodeMeasurements,
     selected: selectedNodes.has(state.selected || "") ? state.selected : null,
   };
 }

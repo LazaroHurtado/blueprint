@@ -5,7 +5,7 @@ import {
 } from "@xyflow/react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { createEditorState, editorReducer } from "./editor-state.ts";
+import { createEditorState, editorReducer, getCanvasNodes } from "./editor-state.ts";
 import { CopilotAccount, CopilotDialog, CustomModelDialog, PromptDialog, useCopilot } from "./Copilot.tsx";
 import { applyGeneratedPrompt, message } from "./copilot.ts";
 import { exportWorkflow } from "./export.ts";
@@ -87,10 +87,7 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
     setTool("select");
     setError("");
   }, [state.path]);
-  const canvasNodes = useMemo<CanvasNode[]>(() => graph?.nodes.map((node) => ({
-    id: node.id, type: "workflow", position: node.position, data: { node, editBody },
-    selected: state.selectedNodes.has(node.id), ariaLabel: `${node.type}: ${node.name || "Unnamed"}`,
-  })) || [], [graph, state.selectedNodes, editBody]);
+  const canvasNodes = useMemo(() => getCanvasNodes(state, editBody), [state, editBody]);
   const canvasEdges = useMemo<Edge[]>(() => graph?.edges.map((edge) => ({
     id: edge.id, source: edge.source, target: edge.target,
     selected: state.selectedEdges.has(edge.id),
@@ -153,6 +150,9 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
     setError("");
   }
   function onNodesChange(changes: NodeChange<CanvasNode>[]) {
+    if (changes.some((change) => change.type === "dimensions")) {
+      dispatch({ type: "dimensions", path: state.path, nodes: changes });
+    }
     const positions = new Map(changes.filter((change) => change.type === "position").map((change) => [change.id, change.position]));
     const removed = new Set(changes.filter((change) => change.type === "remove").map((change) => change.id));
     if (changes.some((change) => change.type === "select" || change.type === "remove")) {

@@ -80,6 +80,15 @@ For export tests, also include Node's `--experimental-vm-modules` flag.
 For a focused native change, pass a test-name filter to
 `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib`.
 
+Canvas nodes are controlled: preserve React Flow's `dimensions` changes in
+editor state and include `measured` when projecting nodes, including after
+selection and position updates. Measurements are transient, scoped to the
+current graph, and excluded from workflow documents and unsaved-change tracking.
+`src/editor-state.test.ts` exercises React Flow's initialization and drag-position
+code across selection updates and draft reopening. It also checks React Flow's
+rendered node visibility after creating, selecting, and moving an agent: missing
+measurements can hide a node as well as cause drag error `015`.
+
 ## Project map
 
 | Surface | Location |
