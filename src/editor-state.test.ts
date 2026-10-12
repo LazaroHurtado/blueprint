@@ -1,10 +1,67 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { adoptUserNodes, calculateNodePosition, type NodeLookup, type ParentLookup } from "@xyflow/system";
-import type { InternalNode } from "@xyflow/react";
+import { ReactFlow, type InternalNode, type NodeProps } from "@xyflow/react";
 import { createEditorState, editorReducer, getCanvasNodes } from "./editor-state.ts";
 import type { CanvasNode } from "./Nodes.tsx";
 import { graphAt, newNode, newWorkflow, parseWorkflow, serializeDraft } from "./workflow.ts";
+
+test("a newly created agent remains rendered and visible during and after dragging", () => {
+  let state = editorReducer(createEditorState(), { type: "open", workflow: newWorkflow() });
+  const agent = newNode("agent", { x: 50, y: 50 });
+  state = editorReducer(state, {
+    type: "graph", path: [],
+    change: (graph) => ({ ...graph, nodes: [...graph.nodes, agent] }),
+  });
+  state = editorReducer(state, {
+    type: "dimensions", path: [],
+    nodes: [{ type: "dimensions", id: agent.id, dimensions: { width: 190, height: 90 } }],
+  });
+  const nodeTypes = {
+    workflow: ({ data }: NodeProps<CanvasNode>) => createElement("div", null, data.node.name),
+  };
+  function renderNode(nodes = getCanvasNodes(state, () => {})) {
+    const html = renderToStaticMarkup(createElement(ReactFlow<CanvasNode>, {
+      nodes, edges: [], nodeTypes, width: 1000, height: 800,
+    }));
+    const wrapper = html.match(/<div[^>]*data-testid="rf__node-[^"]*"[^>]*>/g);
+    assert.equal(wrapper?.length, 1);
+    assert.ok(wrapper![0].includes(`data-id="${agent.id}"`));
+    return wrapper![0];
+  }
+  function assertVisible() {
+    const wrapper = renderNode();
+    assert.match(wrapper, /visibility:visible/);
+    assert.doesNotMatch(wrapper, /visibility:hidden/);
+    const position = state.workflow!.graph.nodes[0].position;
+    assert.ok(wrapper.includes(`transform:translate(${position.x}px,${position.y}px)`));
+    assert.equal(state.workflow!.graph.nodes.length, 1);
+  }
+
+  // Losing measurements makes React Flow hide the node even though it still exists.
+  assert.match(renderNode(getCanvasNodes(state, () => {}).map((node) => ({
+    ...node, measured: undefined,
+  }))), /visibility:hidden/);
+  assertVisible();
+  state = editorReducer(state, {
+    type: "selection", path: [],
+    nodes: [{ type: "select", id: agent.id, selected: true }],
+  });
+  assertVisible();
+  for (const position of [{ x: 80, y: 70 }, { x: 120, y: 100 }, { x: 160, y: 130 }]) {
+    state = editorReducer(state, {
+      type: "graph", path: [],
+      change: (graph) => ({ ...graph, nodes: graph.nodes.map((node) => ({ ...node, position })) }),
+    });
+    assertVisible();
+  }
+  // Mouse release also recreates the controlled node without changing its position.
+  state = editorReducer(state, { type: "graph", path: [], change: (graph) => ({ ...graph }) });
+  assertVisible();
+  assert.deepEqual(parseWorkflow(serializeDraft(state.workflow!)).graph.nodes[0].position, { x: 160, y: 130 });
+});
 
 test("controlled nodes retain initialization through selection, dragging, and reopening a draft", () => {
   const workflow = newWorkflow();
