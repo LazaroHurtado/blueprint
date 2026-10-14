@@ -210,6 +210,47 @@ fn discovery_is_read_only_scoped_reports_bad_files_and_never_follows_links() {
 }
 
 #[test]
+fn nested_catalogue_limits_never_publish_partial_sources() {
+    let text = "---\ndescription: Review\n---\nReview the supplied input.";
+    for (first_count, nested_count) in [(0, MAX_FILES + 1), (MAX_FILES / 2, MAX_FILES / 2)] {
+        let fixture = TestDirectory::new();
+        let project = fixture.0.join("project");
+        let home = fixture.0.join("home");
+        let agents = project.join(".github/agents");
+        let nested = agents.join("z-last");
+        fs::create_dir_all(&nested).unwrap();
+        fs::create_dir_all(home.join(".copilot/agents")).unwrap();
+        fs::write(agents.join("a-first.md"), text).unwrap();
+        fs::write(home.join(".copilot/agents/personal.md"), text).unwrap();
+        for index in 0..first_count {
+            fs::write(agents.join(format!("first-{index}.md")), text).unwrap();
+        }
+        for index in 0..nested_count {
+            fs::write(nested.join(format!("nested-{index}.md")), text).unwrap();
+        }
+        let result = discover(Some(&project), &home, |_| true);
+        assert_eq!(
+            result.profiles.len(),
+            1,
+            "over-limit project profiles must all be discarded"
+        );
+        assert_eq!(result.profiles[0].source, "personal");
+        assert_eq!(result.issues.len(), 1);
+        assert!(result.issues[0].contains("256 files"));
+    }
+    let fixture = TestDirectory::new();
+    let project = fixture.0.join("project");
+    let nested = project.join(".github/agents/nested");
+    fs::create_dir_all(&nested).unwrap();
+    for index in 0..MAX_FILES - 1 {
+        fs::write(nested.join(format!("review-{index}.md")), text).unwrap();
+    }
+    let at_limit = discover(Some(&project), &fixture.0, |_| true);
+    assert_eq!(at_limit.profiles.len(), MAX_FILES - 1);
+    assert!(at_limit.issues.is_empty());
+}
+
+#[test]
 fn directory_swaps_during_discovery_cannot_redirect_file_reads() {
     use std::{cell::Cell, os::unix::fs::symlink};
     let fixture = TestDirectory::new();

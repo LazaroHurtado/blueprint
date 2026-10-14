@@ -5,19 +5,18 @@ import { message } from "./copilot.ts";
 import { Field } from "./ui.tsx";
 import type { AgentNode } from "./workflow.ts";
 
-export function AgentProfileField({ agent, folder, selectedId, onSelect, onChooseFolder }: {
-  agent: AgentNode; folder: string; selectedId: string; onSelect: (profile: AgentProfile | null) => void; onChooseFolder: () => void;
-}) {
+export function useAgentProfiles(folder: string | null) {
   const [catalogue, setCatalogue] = useState<AgentCatalogue>({ profiles: [], issues: [] });
-  const [loading, setLoading] = useState(isTauri());
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   useEffect(() => {
-    if (!isTauri()) return;
+    setCatalogue({ profiles: [], issues: [] });
+    setError("");
+    setLoading(false);
+    if (!isTauri() || folder === null) return;
     let stopped = false;
     setLoading(true);
-    setError("");
-    setCatalogue({ profiles: [], issues: [] });
     discoverAgents(folder).then((result) => {
       if (!stopped) setCatalogue(result);
     }).catch((problem: unknown) => {
@@ -25,6 +24,16 @@ export function AgentProfileField({ agent, folder, selectedId, onSelect, onChoos
     }).finally(() => { if (!stopped) setLoading(false); });
     return () => { stopped = true; };
   }, [folder, revision]);
+  return { catalogue, loading, error, refresh: () => setRevision((value) => value + 1) };
+}
+
+export type AgentProfileController = ReturnType<typeof useAgentProfiles>;
+
+export function AgentProfileField({ agent, folder, selectedId, profiles, onSelect, onChooseFolder }: {
+  agent: AgentNode; folder: string; selectedId: string; profiles: AgentProfileController;
+  onSelect: (profile: AgentProfile | null) => void; onChooseFolder: () => void;
+}) {
+  const { catalogue, loading, error, refresh } = profiles;
   const selected = catalogue.profiles.find((profile) => profile.id === selectedId && matchesAgentProfile(agent, profile));
   return <>
     <Field label="Agent profile">
@@ -54,7 +63,7 @@ export function AgentProfileField({ agent, folder, selectedId, onSelect, onChoos
     </details>}
     {isTauri() && <div>
       {!folder && <button className="text-button" disabled={loading} onClick={onChooseFolder}>Choose project folder</button>}
-      <button className="text-button" disabled={loading} onClick={() => setRevision((value) => value + 1)}>{error || catalogue.issues.length ? "Retry profiles" : "Refresh profiles"}</button>
+      <button className="text-button" disabled={loading} onClick={refresh}>{error || catalogue.issues.length ? "Retry profiles" : "Refresh profiles"}</button>
     </div>}
   </>;
 }

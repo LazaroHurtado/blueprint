@@ -107,14 +107,18 @@ Missing tools means all tools; an explicit empty list means none. MCP environmen
 and header values must use the same secret-reference syntax as the editor.
 Unsafe or malformed profiles are reported without blocking manual authoring.
 **Refresh profiles** reloads external edits; changing the chosen project folder
-reloads its catalogue. Missing agent folders are normal, not errors.
+reloads its catalogue. The current folder's catalogue is shared across agent
+inspectors, so switching nodes does not rescan the filesystem. Missing agent
+folders are normal, not errors.
 
 For bounded, read-only discovery, Blueprint refuses symbolic links, files over
 256 KiB, and more than 256 files/directories per source. Project reads require
 picker-granted scope; personal reads are restricted to `~/.copilot/agents/` by the
 native command and do not grant general home-directory read or write access.
 Each source is independent: an unreadable project folder does not hide personal
-profiles. Directory-relative reads cannot be redirected by replacing a directory
+profiles. Exceeding the source-wide entry limit discards that source's entire
+catalogue, including when the limit is reached in nested directories.
+Directory-relative reads cannot be redirected by replacing a directory
 with a symbolic link during discovery.
 Profile discovery is unavailable in the browser preview.
 

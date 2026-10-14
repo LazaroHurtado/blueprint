@@ -6,6 +6,7 @@ import {
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { applyAgentProfile, type AgentProfile } from "./agents.ts";
+import { useAgentProfiles } from "./AgentProfiles.tsx";
 import { createEditorState, editorReducer, getCanvasNodes } from "./editor-state.ts";
 import { CopilotAccount, CopilotDialog, CustomModelDialog, PromptDialog, useCopilot } from "./Copilot.tsx";
 import { setAgentModel } from "./copilot.ts";
@@ -56,6 +57,7 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
   const workflowName = useRef<HTMLInputElement>(null);
   const flow = useReactFlow<CanvasNode>();
   const workflow = state.workflow;
+  const agentProfiles = useAgentProfiles(workflow ? folder : null);
   const graph = workflow ? graphAt(workflow, state.path) : null;
   const selected = state.selectedNodes.size === 1 ? graph?.nodes.find((node) => node.id === state.selected) : undefined;
   const errors = useMemo(() => workflow ? validateWorkflow(workflow) : [], [workflow]);
@@ -345,7 +347,7 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
           <Inspector node={selected} graph={graph} onChange={changeNode} editBody={() => editBody(selected.id)}
             editTools={() => setDialog("tools")} remove={removeNode} copilot={copilot}
             generatePrompt={() => openAgentDialog("prompt")} editModel={() => openAgentDialog("model")}
-            folder={folder} profileId={profileIds[selected.id] || ""} selectProfile={selectProfile} chooseProjectFolder={() => void chooseProjectFolder()} />
+            folder={folder} profiles={agentProfiles} profileId={profileIds[selected.id] || ""} selectProfile={selectProfile} chooseProjectFolder={() => void chooseProjectFolder()} />
           {errors.length > 0 && <details className="problems"><summary>{errors.length} {errors.length === 1 ? "issue" : "issues"} to fix before saving</summary><ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul></details>}
         </div>
         {selected.type === "agent" && <CopilotAccount copilot={copilot} onOpen={openCopilot} compact />}

@@ -284,7 +284,7 @@ fn scan(
         let name = OsStr::from_bytes(entry.file_name().to_bytes());
         let path = directory.join(name);
         let relative = path.strip_prefix(base).map_err(|_| "Invalid agent path.")?;
-        let result = (|| {
+        let result: Result<Option<File>> = (|| {
             if !allowed(&path) {
                 return Err("Select this project's folder to grant access to its agents.".into());
             }
@@ -300,10 +300,10 @@ fn scan(
             if kind == FileType::Directory {
                 let child = open_directory(handle, Path::new(name))
                     .map_err(|_| "Cannot read this directory without following symbolic links.")?;
-                return scan(&child, &path, base, source, allowed, catalogue, files);
+                return Ok(Some(child));
             }
             if !file_name.ends_with(".md") {
-                return Ok(());
+                return Ok(None);
             }
             if kind != FileType::RegularFile {
                 return Err("Agent profiles must be regular files.".into());
@@ -333,12 +333,14 @@ fn scan(
             catalogue
                 .profiles
                 .push(parse_profile(&text, file_name.into(), source)?);
-            Ok(())
+            Ok(None)
         })();
-        if let Err(error) = result {
-            catalogue
+        match result {
+            Ok(Some(child)) => scan(&child, &path, base, source, allowed, catalogue, files)?,
+            Ok(None) => {}
+            Err(error) => catalogue
                 .issues
-                .push(format!("{source}/{}: {error}", relative.display()));
+                .push(format!("{source}/{}: {error}", relative.display())),
         }
     }
     Ok(())
@@ -351,6 +353,7 @@ fn discover(root: Option<&Path>, home: &Path, allowed: impl Fn(&Path) -> bool) -
         .map(|root| (root, ".github", "project"))
         .chain(std::iter::once((home, ".copilot", "personal")))
     {
+        let mut source_catalogue = AgentCatalogue::default();
         let result = (|| {
             if source == "project" && !allowed(&root.join(config).join("agents")) {
                 return Err(
@@ -379,7 +382,7 @@ fn discover(root: Option<&Path>, home: &Path, allowed: impl Fn(&Path) -> bool) -
                 &directory,
                 source,
                 &|path| source == "personal" || allowed(path),
-                &mut catalogue,
+                &mut source_catalogue,
                 &mut 0,
             )
         })();
@@ -387,6 +390,9 @@ fn discover(root: Option<&Path>, home: &Path, allowed: impl Fn(&Path) -> bool) -
             catalogue
                 .issues
                 .push(format!("{source}/{config}/agents: {error}"));
+        } else {
+            catalogue.profiles.extend(source_catalogue.profiles);
+            catalogue.issues.extend(source_catalogue.issues);
         }
     }
     catalogue

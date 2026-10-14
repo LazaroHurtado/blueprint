@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { ModelField, type CopilotController } from "./Copilot.tsx";
-import { AgentProfileField } from "./AgentProfiles.tsx";
+import { AgentProfileField, type AgentProfileController } from "./AgentProfiles.tsx";
 import type { AgentProfile } from "./agents.ts";
 import { Icon } from "./Nodes.tsx";
 import { Field } from "./ui.tsx";
@@ -60,16 +60,16 @@ export function ConditionFields({ condition, graph, exclude, onChange }: {
   </>;
 }
 
-export function Inspector({ node, graph, onChange, editBody, editTools, remove, copilot, generatePrompt, editModel, folder, profileId, selectProfile, chooseProjectFolder }: {
+export function Inspector({ node, graph, onChange, editBody, editTools, remove, copilot, generatePrompt, editModel, folder, profiles, profileId, selectProfile, chooseProjectFolder }: {
   node: WorkflowNode; graph: Graph; onChange: (node: WorkflowNode) => void;
   editBody: () => void; editTools: () => void; remove: () => void;
   copilot: CopilotController; generatePrompt: () => void; editModel: () => void;
-  folder: string; profileId: string; selectProfile: (profile: AgentProfile | null) => void; chooseProjectFolder: () => void;
+  folder: string; profiles: AgentProfileController; profileId: string; selectProfile: (profile: AgentProfile | null) => void; chooseProjectFolder: () => void;
 }) {
   const promptId = useId();
   return <section className="inspector">
     <h2>{node.name || "Unnamed"}</h2>
-    {node.type === "agent" && <AgentProfileField key={`${node.id}:${folder}`} agent={node} folder={folder} selectedId={profileId} onSelect={selectProfile} onChooseFolder={chooseProjectFolder} />}
+    {node.type === "agent" && <AgentProfileField agent={node} folder={folder} selectedId={profileId} profiles={profiles} onSelect={selectProfile} onChooseFolder={chooseProjectFolder} />}
     <Field label="Name"><input value={node.name} maxLength={100} onChange={(event) => onChange({ ...node, name: event.target.value })} /></Field>
     {node.type === "agent" ? <>
       <ModelField agent={node} copilot={copilot} onChange={onChange} onManual={editModel} />
