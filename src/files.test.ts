@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mock, test } from "node:test";
 import { newNode, newWorkflow, parseWorkflow } from "./workflow.ts";
+import { exportWorkflow } from "./export.ts";
 
 let native = true;
 let response: unknown;
@@ -13,14 +14,67 @@ mock.module("@tauri-apps/api/core", { namedExports: {
     return response;
   },
 } });
-let picked: string | null = null;
+let picked: string | null | Error = null;
+const folderDialogs: unknown[] = [];
 let fileText = "";
-mock.module("@tauri-apps/plugin-dialog", { namedExports: { open: async () => picked, save: async () => picked } });
+mock.module("@tauri-apps/plugin-dialog", { namedExports: {
+  open: async (options: unknown) => {
+    folderDialogs.push(options);
+    if (picked instanceof Error) throw picked;
+    return picked;
+  },
+  save: async () => {
+    if (picked instanceof Error) throw picked;
+    return picked;
+  },
+} });
 mock.module("@tauri-apps/plugin-fs", { namedExports: {
   lstat: async () => ({ size: Buffer.byteLength(fileText) }),
   readTextFile: async () => fileText,
 } });
-const { chooseDraftFile, chooseFolder, openWorkflow, recoverSaves, saveDraft, saveExport } = await import("./files.ts");
+const { chooseDraftFile, chooseFolder, createWorkflow, openWorkflow, recoverSaves, saveDraft, saveExport } = await import("./files.ts");
+
+test("new desktop workflows require a folder and export their .github files there", async () => {
+  const commands = calls.length;
+  picked = null;
+  assert.equal(await createWorkflow(), null);
+  picked = new Error("Folder picker failed");
+  await assert.rejects(createWorkflow(), /Folder picker failed/);
+  picked = "/chosen/project";
+  const document = await createWorkflow();
+  assert.ok(document);
+  assert.equal(document.folder, picked);
+  assert.deepEqual(folderDialogs.at(-1), {
+    title: "Choose the folder that will contain the workflow's .github files",
+    directory: true, multiple: false, recursive: true,
+  });
+  assert.equal(document.workflow.graph.nodes.length, 0);
+  assert.equal(calls.length, commands);
+  const agent = newNode("agent", { x: 0, y: 0 });
+  assert.ok(agent.type === "agent");
+  agent.prompt = "Review the supplied task.";
+  document.workflow.graph.nodes.push(agent);
+  const files = exportWorkflow(document.workflow);
+  assert.ok(files.some((file) => file.path.startsWith(".github/extensions/") && file.path.endsWith("/extension.mjs")));
+  assert.ok(files.every((file) => file.path.startsWith(".github/")));
+  response = { saved: true, recovered: null };
+  await saveExport(document.folder, files);
+  assert.deepEqual(calls.at(-1), { command: "save_export", arguments: { root: picked, files } });
+});
+
+test("browser preview still creates workflows without a native folder picker or writes", async () => {
+  native = false;
+  const dialogs = folderDialogs.length;
+  const commands = calls.length;
+  try {
+    const document = await createWorkflow();
+    assert.ok(document);
+    assert.equal(document.folder, "");
+    assert.equal(document.workflow.graph.nodes.length, 0);
+    assert.equal(folderDialogs.length, dialogs);
+    assert.equal(calls.length, commands);
+  } finally { native = true; }
+});
 
 test("exports use the native transaction command and preserve cancellation/recovery results", async () => {
   const files = [{ path: ".github/agents/one.agent.md", content: "new one" }];

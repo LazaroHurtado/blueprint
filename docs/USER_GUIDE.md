@@ -28,7 +28,9 @@ connection require the desktop app.
 
 ## Design a workflow
 
-1. Create a workflow, or open a saved `blueprint.json` document.
+1. Choose **Create new workflow**, then pick the folder that will contain its
+   `.github` files (usually your repository root), or open a saved `blueprint.json`
+   document. Cancelling the folder picker keeps you on the welcome screen.
 2. Click or drag Agent, Decision, or Loop from the floating top toolbar. Select a node to
    edit it. Node placement, connections, and deletion also have button/form
    alternatives to dragging.
@@ -45,6 +47,13 @@ back navigation to the welcome screen. The left inspector appears only when a
 single block is selected; click the canvas, its close button, or Escape to hide it.
 Adding a block leaves it unselected until you select it. The inspector is at most
 720 px tall and shrinks to fit smaller windows without covering the top controls.
+
+New desktop workflows remember the chosen folder as their repository-export
+destination while you edit. Files are written only when you choose **Save & export**,
+under `.github/extensions/<workflow-name>/` and `.github/agents/` in that folder.
+Use **Browse** in the Save dialog to change the destination. Draft files still use
+their own file picker. The browser preview skips folder selection and remains
+editing-only; an opened document still asks for an export folder when saving.
 
 The canvas can be panned and zoomed. Delete/Backspace removes selected nodes or
 connections; Escape dismisses the inspector or cancels connection mode; Ctrl/Cmd+S
@@ -75,6 +84,39 @@ reasoning-effort field in agent profile frontmatter.
 
 Copilot login is optional. Workflow creation, manual editing, import, draft saving,
 and repository export remain local and work without signing in.
+
+### Existing agent profiles
+
+Select an agent block and use **Agent profile** to import an existing agent.
+Blueprint reads Markdown profiles from the chosen project's `.github/agents/`
+and your home directory's `.copilot/agents/`, including nested folders. The
+dropdown groups **Project** and **Personal** entries and includes filenames to
+distinguish duplicate display names. **Custom agent** keeps manual editing available.
+Opened documents can use **Choose project folder** to select their project.
+
+Choosing a profile opens a confirmation before replacing the node's name,
+system prompt, model and tool/MCP settings. Task inputs, output fields, connections
+and position stay unchanged. The original file is never written; the imported copy
+is saved in the workflow and exported as a separate Blueprint agent profile.
+Unknown model IDs are preserved. Additional profile metadata that Blueprint
+cannot represent is listed in the confirmation rather than applied.
+
+Discovery is local and does not require Copilot login or run an agent, hook or MCP
+command. Files must have valid YAML frontmatter, a description and a system prompt.
+Missing tools means all tools; an explicit empty list means none. MCP environment
+and header values must use the same secret-reference syntax as the editor.
+Unsafe or malformed profiles are reported without blocking manual authoring.
+**Refresh profiles** reloads external edits; changing the chosen project folder
+reloads its catalogue. Missing agent folders are normal, not errors.
+
+For bounded, read-only discovery, Blueprint refuses symbolic links, files over
+256 KiB, and more than 256 files/directories per source. Project reads require
+picker-granted scope; personal reads are restricted to `~/.copilot/agents/` by the
+native command and do not grant general home-directory read or write access.
+Each source is independent: an unreadable project folder does not hide personal
+profiles. Directory-relative reads cannot be redirected by replacing a directory
+with a symbolic link during discovery.
+Profile discovery is unavailable in the browser preview.
 
 ### Connect an account
 
