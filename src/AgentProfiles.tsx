@@ -52,7 +52,7 @@ export function AgentProfileField({ agent, folder, selectedId, profiles, onSelec
       <small>{!isTauri() ? "Profile discovery requires the desktop app."
         : loading ? "Loading available profiles..."
         : selected ? "Imported copy; original unchanged."
-        : catalogue.profiles.length ? "Project + personal agent profiles."
+        : catalogue.profiles.length ? "Choose an available agent profile."
         : error || catalogue.issues.length ? "Profiles could not all be loaded. Custom editing remains available."
         : "No profiles found. Use Custom agent."}</small>
     </Field>
