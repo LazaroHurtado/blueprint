@@ -102,6 +102,7 @@ measurements can hide a node as well as cause drag error `015`.
 | Native command registration and lifecycle | `src-tauri/src/lib.rs` |
 | Recoverable file transactions | `src-tauri/src/persistence.rs` |
 | Pinned Copilot runtime and restricted sessions | `src-tauri/src/copilot.rs` |
+| Read-only agent discovery and profile import | `src-tauri/src/agents.rs`, `src/agents.ts`, `src/AgentProfiles.tsx` |
 
 ## Dependencies and packaging
 

@@ -1,5 +1,7 @@
 import { useId, useState } from "react";
 import { ModelField, type CopilotController } from "./Copilot.tsx";
+import { AgentProfileField, type AgentProfileController } from "./AgentProfiles.tsx";
+import type { AgentProfile } from "./agents.ts";
 import { Icon } from "./Nodes.tsx";
 import { Field } from "./ui.tsx";
 import { allowedServerTools, mcpSchema, outputFields, type AgentNode, type Condition, type FieldType, type Graph, type McpServer, type Operator, type Primitive, type WorkflowNode } from "./workflow.ts";
@@ -58,14 +60,16 @@ export function ConditionFields({ condition, graph, exclude, onChange }: {
   </>;
 }
 
-export function Inspector({ node, graph, onChange, editBody, editTools, remove, copilot, generatePrompt, editModel }: {
+export function Inspector({ node, graph, onChange, editBody, editTools, remove, copilot, generatePrompt, editModel, folder, profiles, profileId, selectProfile, chooseProjectFolder }: {
   node: WorkflowNode; graph: Graph; onChange: (node: WorkflowNode) => void;
   editBody: () => void; editTools: () => void; remove: () => void;
   copilot: CopilotController; generatePrompt: () => void; editModel: () => void;
+  folder: string; profiles: AgentProfileController; profileId: string; selectProfile: (profile: AgentProfile | null) => void; chooseProjectFolder: () => void;
 }) {
   const promptId = useId();
   return <section className="inspector">
     <h2>{node.name || "Unnamed"}</h2>
+    {node.type === "agent" && <AgentProfileField agent={node} folder={folder} selectedId={profileId} profiles={profiles} onSelect={selectProfile} onChooseFolder={chooseProjectFolder} />}
     <Field label="Name"><input value={node.name} maxLength={100} onChange={(event) => onChange({ ...node, name: event.target.value })} /></Field>
     {node.type === "agent" ? <>
       <ModelField agent={node} copilot={copilot} onChange={onChange} onManual={editModel} />

@@ -11,6 +11,10 @@ release represented by this file yet.
 - Agent configuration, explicit connections, structured decisions, nested
   bounded Repeat loops, and sequential For-each loops.
 - Standalone draft saving and validated Copilot extension/agent-profile exports.
+- Project-folder selection for new workflows, reused as the repository-export
+  destination.
+- Confirmed imports of existing project and personal agent profiles, with local
+  read-only discovery and manual authoring available when profiles cannot load.
 - Native scoped saves, overwrite checks, durable journaling, and rollback recovery.
 - Optional Copilot login, account model discovery/manual IDs, and reviewed
   system-prompt generation.

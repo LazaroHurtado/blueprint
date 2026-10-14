@@ -39,6 +39,12 @@ On Ubuntu these are installed in the package's `/usr/lib` resource directory
 inside `Blueprint.app/Contents/Resources/`. Inspect the actual candidate bundle
 before publishing; do not distribute a bare executable without its notices.
 
+Agent-profile frontmatter uses the MIT/Apache-2.0 licensed `serde_yaml_ng`
+parser in the native process. YAML is treated as data, never executable code.
+Its exact version and transitive dependency notices are included in the
+generated native notices. Scoped profile reads use `rustix`, an existing native
+dependency, for directory-relative filesystem operations that refuse symlinks.
+
 Some native dependencies use MPL-2.0. They are unmodified dependencies, not
 relicensed Blueprint code. Their exact versions and source repositories are
 identified by `Cargo.lock` and the generated native notices; sources are available

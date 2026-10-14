@@ -1,7 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { lstat, readTextFile } from "@tauri-apps/plugin-fs";
-import { parseWorkflow, serializeDraft, slug, type Workflow } from "./workflow.ts";
+import { newWorkflow, parseWorkflow, serializeDraft, slug, type Workflow } from "./workflow.ts";
 import type { ExportFile } from "./export.ts";
 
 export type SaveResult = { saved: boolean; recovered: string | null };
@@ -18,7 +18,13 @@ export async function openWorkflow(): Promise<Workflow | null> {
 
 export async function chooseFolder(): Promise<string | null> {
   if (!isTauri()) throw new Error("Native folder selection requires the desktop app. Run npm run tauri dev.");
-  return open({ title: "Choose a repository or export folder", directory: true, multiple: false, recursive: true });
+  return open({ title: "Choose the folder that will contain the workflow's .github files", directory: true, multiple: false, recursive: true });
+}
+
+export async function createWorkflow(): Promise<{ workflow: Workflow; folder: string } | null> {
+  const folder = isTauri() ? await chooseFolder() : "";
+  if (folder === null) return null;
+  return { workflow: newWorkflow(), folder };
 }
 
 export async function recoverSaves(): Promise<string | null> {

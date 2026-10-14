@@ -5,17 +5,19 @@ import {
 } from "@xyflow/react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { applyAgentProfile, type AgentProfile } from "./agents.ts";
+import { useAgentProfiles } from "./AgentProfiles.tsx";
 import { createEditorState, editorReducer, getCanvasNodes } from "./editor-state.ts";
 import { CopilotAccount, CopilotDialog, CustomModelDialog, PromptDialog, useCopilot } from "./Copilot.tsx";
 import { setAgentModel } from "./copilot.ts";
 import { applyGeneratedPrompt, message } from "./copilot.ts";
 import { exportWorkflow } from "./export.ts";
-import { chooseDraftFile, chooseFolder, openWorkflow, saveDraft, saveExport } from "./files.ts";
+import { chooseDraftFile, chooseFolder, createWorkflow, openWorkflow, saveDraft, saveExport } from "./files.ts";
 import { Inspector, ToolsEditor } from "./Inspector.tsx";
 import { Icon, WorkflowCard, type CanvasNode } from "./Nodes.tsx";
 import { Dialog, Field } from "./ui.tsx";
 import {
-  graphAt, newId, newNode, newWorkflow, orderedNodes, parseWorkflow, serializeDraft, slug, validateWorkflow,
+  graphAt, newId, newNode, orderedNodes, parseWorkflow, serializeDraft, slug, validateWorkflow,
   type AgentNode, type Graph, type WorkflowEdge, type WorkflowNode,
 } from "./workflow.ts";
 import "@xyflow/react/dist/style.css";
@@ -34,9 +36,11 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
   const [state, dispatch] = useReducer(editorReducer, undefined, createEditorState);
   const copilot = useCopilot();
   const [tool, setTool] = useState<"select" | "connect">("select");
-  const [dialog, setDialog] = useState<"save" | "tools" | "saved" | "connections" | "prompt" | "model" | null>(null);
+  const [dialog, setDialog] = useState<"save" | "tools" | "saved" | "connections" | "prompt" | "model" | "profile" | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [agentTarget, setAgentTarget] = useState<{ workflowId: string; path: string[]; agent: AgentNode } | null>(null);
+  const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
+  const [profileIds, setProfileIds] = useState<Record<string, string>>({});
   const [discardOpen, setDiscardOpen] = useState(false);
   const [pending, setPending] = useState<"home" | "close">("home");
   const [folder, setFolder] = useState("");
@@ -53,12 +57,13 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
   const workflowName = useRef<HTMLInputElement>(null);
   const flow = useReactFlow<CanvasNode>();
   const workflow = state.workflow;
+  const agentProfiles = useAgentProfiles(workflow ? folder : null);
   const graph = workflow ? graphAt(workflow, state.path) : null;
   const selected = state.selectedNodes.size === 1 ? graph?.nodes.find((node) => node.id === state.selected) : undefined;
   const errors = useMemo(() => workflow ? validateWorkflow(workflow) : [], [workflow]);
   const snapshot = useMemo(() => workflow ? serializeDraft(workflow) : "", [workflow]);
   const dirty = workflow !== null && snapshot !== state.saved;
-  const modalDraft = dialog === "tools" || dialog === "prompt" || dialog === "model";
+  const modalDraft = dialog === "tools" || dialog === "prompt" || dialog === "model" || dialog === "profile";
   const copilotPending = copilot.phase !== "idle";
   const editGraph = useCallback((change: (graph: Graph) => Graph) => dispatch({ type: "graph", path: state.path, change }), [state.path]);
   function changeNode(node: WorkflowNode) {
@@ -82,7 +87,23 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
     if (node?.type !== "agent") throw new Error("The original agent is no longer available. Copy your draft before closing this dialog.");
     return node;
   }
-  function closeAgentDialog() { setDialog(null); setAgentTarget(null); }
+  function closeAgentDialog() { setDialog(null); setAgentTarget(null); setAgentProfile(null); }
+  function selectProfile(profile: AgentProfile | null) {
+    if (!workflow || selected?.type !== "agent") { setError("Select an agent first."); return; }
+    if (!profile) { setProfileIds((current) => ({ ...current, [selected.id]: "" })); return; }
+    setAgentTarget({ workflowId: workflow.id, path: [...state.path], agent: structuredClone(selected) });
+    setAgentProfile(profile);
+    setError("");
+    setDialog("profile");
+  }
+  async function chooseProjectFolder() {
+    setError("");
+    setBusy(true);
+    try {
+      const path = await chooseFolder();
+      if (path) setFolder(path);
+    } catch (problem) { setError(message(problem)); } finally { setBusy(false); }
+  }
   const editBody = useCallback((id: string) => {
     dispatch({ type: "navigate", path: [...state.path, id] });
     setTool("select");
@@ -96,6 +117,19 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
     type: "smoothstep", markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: "#969aa1" },
   })) || [], [graph, state.selectedEdges]);
 
+  async function createDocument() {
+    setError("");
+    setBusy(true);
+    try {
+      const document = await createWorkflow();
+      if (document) {
+        dispatch({ type: "open", workflow: document.workflow });
+        setFolder(document.folder);
+        setDraftPath("");
+        setTool("select");
+      }
+    } catch (problem) { setError(message(problem)); } finally { setBusy(false); }
+  }
   async function openDocument() {
     setError("");
     if (!isTauri()) { fileInput.current?.click(); return; }
@@ -222,6 +256,9 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
   }
 
   useEffect(() => {
+    setProfileIds({});
+  }, [folder, workflow?.id]);
+  useEffect(() => {
     if (!notice || dialog) return;
     const timer = window.setTimeout(() => setNotice(""), 4000);
     return () => window.clearTimeout(timer);
@@ -278,7 +315,7 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
     }} />
     {!workflow ? <main className="welcome">
       <div className="welcome-content"><h1>blueprint</h1><div className="welcome-actions">
-        <button className="primary" disabled={busy} onClick={() => { dispatch({ type: "open", workflow: newWorkflow() }); setFolder(""); setDraftPath(""); setError(""); }}>Create new workflow</button>
+        <button className="primary" disabled={busy} onClick={createDocument}>Create new workflow</button>
         <button disabled={busy} onClick={openDocument}>Open existing workflow</button>
       </div><CopilotAccount copilot={copilot} onOpen={openCopilot} />
         {error && <p className="error" role="alert">{error}</p>}</div>
@@ -309,7 +346,8 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
         <div className="panel-content">
           <Inspector node={selected} graph={graph} onChange={changeNode} editBody={() => editBody(selected.id)}
             editTools={() => setDialog("tools")} remove={removeNode} copilot={copilot}
-            generatePrompt={() => openAgentDialog("prompt")} editModel={() => openAgentDialog("model")} />
+            generatePrompt={() => openAgentDialog("prompt")} editModel={() => openAgentDialog("model")}
+            folder={folder} profiles={agentProfiles} profileId={profileIds[selected.id] || ""} selectProfile={selectProfile} chooseProjectFolder={() => void chooseProjectFolder()} />
           {errors.length > 0 && <details className="problems"><summary>{errors.length} {errors.length === 1 ? "issue" : "issues"} to fix before saving</summary><ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul></details>}
         </div>
         {selected.type === "agent" && <CopilotAccount copilot={copilot} onOpen={openCopilot} compact />}
@@ -339,6 +377,25 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
         {notice && !dialog && !error && <div className="canvas-notice" role="status">{notice}</div>}
       </main>
     </div>}
+    {dialog === "profile" && agentTarget && agentProfile && <Dialog title={`Use ${agentProfile.name}?`} onClose={closeAgentDialog}>
+      <p className="muted">{agentProfile.source === "project" ? "Project · .github/agents/" : "Personal · ~/.copilot/agents/"}{agentProfile.fileName}</p>
+      <p>{agentProfile.description}</p>
+      <p>Replace this node's name, system prompt, model and tool settings with a copy of the selected profile?</p>
+      <p className="muted">Task, output fields and connections stay unchanged. The original agent file is not modified.</p>
+      {agentProfile.warnings.map((warning) => <p className="muted" key={warning}>{warning}</p>)}
+      {error && <p className="error" role="alert">{error}</p>}
+      <div className="dialog-actions"><button onClick={closeAgentDialog}>Cancel</button><button className="primary" onClick={() => {
+        try {
+          const current = currentTarget();
+          const imported = applyAgentProfile(current, agentTarget.agent, agentProfile, copilot.models);
+          changeNode(imported);
+          setProfileIds((current) => ({ ...current, [agentTarget.agent.id]: agentProfile.id }));
+          closeAgentDialog();
+          setNotice("Agent profile imported; original unchanged." + (current.reasoningEffort && !imported.reasoningEffort
+            ? " Reasoning effort reset to Default for the imported model." : ""));
+        } catch (problem) { setError(message(problem)); }
+      }}>Use profile</button></div>
+    </Dialog>}
     {dialog === "prompt" && agentTarget && <PromptDialog agent={agentTarget.agent} onClose={closeAgentDialog} onConnect={() => {
       setCopilotOpen(true);
       void copilot.refresh();
@@ -396,6 +453,7 @@ export default function App({ startupNotice = "" }: { startupNotice?: string }) 
     {discardOpen && <Dialog title="Unsaved changes" onClose={() => setDiscardOpen(false)}>
       <p>Discard your unsaved workflow changes?</p>
       {dialog === "prompt" && <p className="muted">This also discards the prompt description or unapplied draft.</p>}
+      {dialog === "profile" && <p className="muted">The pending agent profile has not been applied.</p>}
       {error && <p className="error" role="alert">{error}</p>}
       <div className="dialog-actions"><button onClick={() => setDiscardOpen(false)}>Keep editing</button><button className="primary" onClick={discard}>Discard changes</button></div>
     </Dialog>}

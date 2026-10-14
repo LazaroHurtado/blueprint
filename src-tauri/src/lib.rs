@@ -1,3 +1,4 @@
+mod agents;
 mod copilot;
 mod persistence;
 
@@ -108,6 +109,7 @@ pub fn run() {
             save_export,
             save_draft,
             recover_saves,
+            agents::discover_agents,
             copilot::copilot_status,
             copilot::copilot_models,
             copilot::copilot_login,

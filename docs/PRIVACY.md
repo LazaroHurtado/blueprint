@@ -50,6 +50,17 @@ not perform real login, so keychain behavior on a particular desktop remains
 unverified and depends on platform keychain availability. Blueprint does not
 consent to a plaintext-storage fallback.
 
+## Local agent profile discovery
+
+The desktop agent-profile dropdown reads only Markdown profiles in the selected
+project's `.github/agents/` and the user's `~/.copilot/agents/`. It does not read
+Copilot credential files or MCP configuration elsewhere, execute imported code,
+start MCP servers, or submit profile contents to a model. Native discovery rejects
+symlinks and literal MCP environment/header credentials before returning a profile
+to the renderer. Selecting a profile copies its supported settings only after
+confirmation; its instructions become part of the user's saved workflow and export.
+Personal discovery does not add home-directory grants to the save engine.
+
 ## Prompt generation
 
 Only choosing **Generate prompt** submits an inference request. Blueprint sends:
